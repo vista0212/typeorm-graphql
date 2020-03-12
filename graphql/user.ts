@@ -1,6 +1,6 @@
 import { Repository, getRepository } from 'typeorm';
 import { gql } from 'apollo-server-express';
-import { pbkdf2, pbkdf2Sync } from 'crypto';
+import { pbkdf2, pbkdf2Sync, verify } from 'crypto';
 import * as dotenv from 'dotenv';
 import * as randomstring from 'randomstring';
 import * as jwt from 'jsonwebtoken';
@@ -35,6 +35,7 @@ export const typeDef = gql`
   }
 
   type Mutation {
+    updateUser(token: String, email: String, name: String, password: String): UserWithToken!
     unRegister(token: String, password: String): Boolean!
   }
 `;
@@ -170,6 +171,43 @@ export const resolvers = {
     }
   },
   Mutation: {
+    updateUser: async (
+      _: any,
+      {
+        token,
+        email,
+        name,
+        password
+      }: {
+        token: string;
+        email: User['email'];
+        name: User['name'];
+        password: User['password'];
+      }
+    ) => {
+      const userRepository: Repository<User> = getRepository(User);
+
+      const { pk }: { pk: User['pk'] } = verifyToken(token) as User;
+
+      const user: User = await findByPk(userRepository, pk).catch(catchDBError());
+
+      if (!user) {
+        throwError('Invalid Token');
+      }
+
+      const encryptionPassword: User['password'] = passwordEncryption(password, user.passwordKey);
+
+      Object.assign(user, { email, name, encryptionPassword });
+
+      await userRepository.save(user);
+
+      const reIssuedToken: string = issueToken(user.pk);
+
+      return {
+        user,
+        token: reIssuedToken
+      };
+    },
     unRegister: async (
       _: any,
       {
