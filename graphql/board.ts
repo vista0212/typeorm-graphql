@@ -24,6 +24,7 @@ export const typeDef = gql`
   }
 
   type Mutation {
+    updateBoard(board_pk: Int!, title: String, content: String, token: String!): Boolean!
     deleteBoard(board_pk: Int!, token: String!): Boolean!
   }
 `;
@@ -45,14 +46,13 @@ export const resolvers = {
 
       const user_pk: User['pk'] | undefined = token ? (verifyToken(token) as User).pk : undefined;
 
-      const [board, user]: [Board, User | undefined] = await Promise.all([
-        boardRepository.findOne({
+      const board: Board = await boardRepository
+        .findOne({
           where: {
             pk: board_pk
           }
-        }),
-        user_pk ? findByPk(userRepository, user_pk) : undefined
-      ]).catch(catchDBError());
+        })
+        .catch(catchDBError());
 
       if (!board) {
         throwError('Not Found Board');
@@ -65,7 +65,7 @@ export const resolvers = {
         content: board.content,
         createdAt: board.createdAt,
         updatedAt: board.updatedAt,
-        isWrite: user ? board.user_pk === user.pk : false
+        isWrite: board.user_pk === user_pk
       };
     },
     myBoards: async (_: any, { token }: { token: string }) => {
@@ -140,6 +140,46 @@ export const resolvers = {
     }
   },
   Mutation: {
+    updateBoard: async (
+      _: any,
+      {
+        board_pk,
+        title,
+        content,
+        token
+      }: {
+        board_pk: Board['pk'];
+        title: Board['title'] | undefined;
+        content: Board['content'] | undefined;
+        token: string;
+      }
+    ) => {
+      const boardRepository: Repository<Board> = getRepository(Board);
+
+      const user_pk: User['pk'] = (verifyToken(token) as User).pk;
+
+      const board: Board = await boardRepository
+        .findOne({
+          where: {
+            pk: board_pk
+          }
+        })
+        .catch(catchDBError());
+
+      if (!board) {
+        throwError('Not Found Board');
+      }
+
+      if (board.user_pk !== user_pk) {
+        throwError('Forbidden');
+      }
+
+      Object.assign(board, { title, content });
+
+      await boardRepository.save(board);
+
+      return true;
+    },
     deleteBoard: async (
       _: any,
       {
@@ -151,7 +191,6 @@ export const resolvers = {
       }
     ) => {
       const boardRepository: Repository<Board> = getRepository(Board);
-      const userRepository: Repository<User> = getRepository(User);
 
       const user_pk: User['pk'] = (verifyToken(token) as User).pk;
 
