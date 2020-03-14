@@ -6,7 +6,7 @@ import * as randomstring from 'randomstring';
 import * as jwt from 'jsonwebtoken';
 
 import { User, findByPk, findByEmail } from 'database/entities/User';
-import { catchDBError, throwError } from '@Lib/error';
+import { throwError, catchDBError } from '@Lib/error';
 import { verifyToken } from '@Lib/utils';
 
 dotenv.config();
@@ -27,14 +27,14 @@ export const typeDef = gql`
     token: String!
   }
 
-  type Query {
+  extend type Query {
     user(pk: String): User!
     allUsers: [User]!
     register(email: String, password: String, name: String): Boolean!
     login(email: String, password: String): UserWithToken!
   }
 
-  type Mutation {
+  extend type Mutation {
     updateUser(token: String, email: String, name: String, password: String): UserWithToken!
     unRegister(token: String, password: String): Boolean!
   }
@@ -81,13 +81,7 @@ export const resolvers = {
   Query: {
     user: async (_: any, { pk }: { pk: User['pk'] }) => {
       const userRepository: Repository<User> = getRepository(User);
-      const user: User = await userRepository
-        .findOne({
-          where: {
-            pk
-          }
-        })
-        .catch(catchDBError());
+      const user: User = await findByPk(userRepository, pk);
 
       if (!user) {
         throwError('Not Found User');
@@ -233,7 +227,7 @@ export const resolvers = {
         throwError('Invalid Password');
       }
 
-      await userRepository.remove(user);
+      await userRepository.remove(user).catch(catchDBError());
 
       return true;
     }

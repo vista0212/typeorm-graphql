@@ -4,13 +4,16 @@ import {
   Column,
   CreateDateColumn,
   UpdateDateColumn,
-  Repository
+  Repository,
+  OneToMany,
+  BaseEntity
 } from 'typeorm';
 
 import { catchDBError } from '@Lib/error';
+import { Board } from './Board';
 
 @Entity('users')
-export class User {
+export class User extends BaseEntity {
   @PrimaryGeneratedColumn('uuid')
   public pk: string;
 
@@ -33,6 +36,12 @@ export class User {
   @Column('timestamp')
   @UpdateDateColumn()
   public updatedAt: Date;
+
+  @OneToMany(
+    type => Board,
+    board => board.user
+  )
+  public board: Board[];
 }
 
 export const findByPk: (

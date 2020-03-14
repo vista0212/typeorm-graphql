@@ -9,18 +9,27 @@ dotenv.config();
 export const verifyToken: (token: string) => User | void = token => {
   const secretKey: string = process.env.TOKEN_SECRET;
 
-  const decoded: User | void = jwt.verify(token, secretKey, (err, result) => {
-    if (err) {
-      switch (err.name) {
-        case 'JsonWebTokenError':
-          throwError('JsonWebToken Error');
-        default:
-          throwError('Token Error');
+  const decoded: User | void = jwt.verify(
+    token,
+    secretKey,
+    (err: jwt.JsonWebTokenError, result) => {
+      if (err) {
+        switch (err.name) {
+          case 'JsonWebTokenError':
+            console.log(1);
+            throwError('Token Error');
+          case 'TokenExpiredError':
+            throwError('Token Expired');
+          case 'NotBeforeError':
+            throwError('Not Before Error');
+          default:
+            throwError('Undefined Error');
+        }
       }
-    }
 
-    return result;
-  });
+      return result;
+    }
+  );
 
   return decoded;
 };
