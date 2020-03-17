@@ -7,17 +7,19 @@ import {
   Entity,
   CreateDateColumn,
   UpdateDateColumn,
-  DeleteDateColumn
+  DeleteDateColumn,
+  OneToMany
 } from 'typeorm';
 
 import { User } from './User';
+import { Comment } from './comment';
 
 @Entity('boards')
 export class Board extends BaseEntity {
   @PrimaryGeneratedColumn('increment')
   public pk: number;
 
-  @Column({ type: 'varchar', length: 36, nullable: false })
+  @Column({ type: 'uuid', length: 36, nullable: false })
   public user_pk: string;
 
   @Column({ type: 'varchar', length: 20, nullable: false })
@@ -43,4 +45,10 @@ export class Board extends BaseEntity {
   })
   @JoinColumn({ name: 'user_pk' })
   public user: User;
+
+  @OneToMany(
+    type => Comment,
+    comment => comment.board
+  )
+  public comment: Comment[];
 }

@@ -3,27 +3,29 @@ import { Board } from 'database/entities/Board';
 import { throwError, catchDBError } from '@Lib/error';
 import { verifyToken } from '@Lib/utils';
 import { User, findByPk } from 'database/entities/User';
-import { getRepository, Repository } from 'typeorm';
+import { getRepository, Repository, getManager } from 'typeorm';
 
 export const typeDef = gql`
   type Board {
     pk: Int!
     user_pk: String!
+    user_name: String!
     title: String!
     content: String!
-    createdAt: String!
-    updatedAt: String!
+    createdAt: Date!
+    updatedAt: Date!
     isWrite: Boolean
+    comment: [Comment]
   }
 
-  type Query {
+  extend type Query {
     board(board_pk: Int!, token: String): Board!
     myBoards(token: String!): [Board]!
     allBoards: [Board]!
     createBoard(token: String!, title: String!, content: String!): Boolean!
   }
 
-  type Mutation {
+  extend type Mutation {
     updateBoard(board_pk: Int!, title: String, content: String, token: String!): Boolean!
     deleteBoard(board_pk: Int!, token: String!): Boolean!
   }
@@ -42,17 +44,14 @@ export const resolvers = {
       }
     ) => {
       const boardRepository: Repository<Board> = getRepository(Board);
-      const userRepository: Repository<User> = getRepository(User);
-
       const user_pk: User['pk'] | undefined = token ? (verifyToken(token) as User).pk : undefined;
 
-      const board: Board = await boardRepository
-        .findOne({
-          where: {
-            pk: board_pk
-          }
-        })
-        .catch(catchDBError());
+      const board: Board = await boardRepository.findOne({
+        where: {
+          pk: board_pk
+        },
+        relations: ['user', 'comment']
+      });
 
       if (!board) {
         throwError('Not Found Board');
@@ -61,11 +60,13 @@ export const resolvers = {
       return {
         pk: board.pk,
         user_pk: board.user_pk,
+        user_name: board.user.name,
         title: board.title,
         content: board.content,
         createdAt: board.createdAt,
         updatedAt: board.updatedAt,
-        isWrite: board.user_pk === user_pk
+        isWrite: board.user_pk === user_pk,
+        comment: board.comment
       };
     },
     myBoards: async (_: any, { token }: { token: string }) => {
@@ -95,15 +96,26 @@ export const resolvers = {
       return board;
     },
     allBoards: async (_: any) => {
-      const boardRepository: Repository<Board> = getRepository(Board);
-
-      const boards: Board[] = await boardRepository.find().catch(catchDBError());
+      const boards: Board[] = await getManager()
+        .createQueryBuilder(Board, 'boards')
+        .limit(5)
+        .orderBy('boards.createdAt', 'DESC')
+        .leftJoinAndSelect('boards.user', 'user')
+        .getMany();
 
       if (boards.length < 1) {
         throwError('Not Found Boards');
       }
 
-      return boards;
+      return boards.map((board: Board) => ({
+        pk: board.pk,
+        user_pk: board.user_pk,
+        user_name: board.user.name,
+        title: board.title,
+        content: board.content,
+        createdAt: board.createdAt,
+        updatedAt: board.updatedAt
+      }));
     },
     createBoard: async (
       _: any,
@@ -176,7 +188,7 @@ export const resolvers = {
 
       Object.assign(board, { title, content });
 
-      await boardRepository.save(board);
+      await board.save().catch(catchDBError());
 
       return true;
     },
@@ -210,7 +222,7 @@ export const resolvers = {
         throwError('Forbidden');
       }
 
-      await boardRepository.remove(board).catch(catchDBError());
+      await board.remove().catch(catchDBError());
 
       return true;
     }

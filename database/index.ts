@@ -3,6 +3,7 @@ import * as dotenv from 'dotenv';
 
 import { User } from './entities/User';
 import { Board } from './entities/Board';
+import { Comment } from './entities/comment';
 
 dotenv.config();
 
@@ -14,7 +15,7 @@ const DB_CONFIG = {
 };
 
 const connectionOptions: ConnectionOptions = {
-  entities: [User, Board],
+  entities: [User, Board, Comment],
   type: 'mysql',
   host: DB_CONFIG.DB_HOST,
   database: DB_CONFIG.DB_NAME,

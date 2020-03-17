@@ -18,8 +18,8 @@ export const typeDef = gql`
     password: String!
     passwordKey: String!
     name: String!
-    createdAt: String!
-    updatedAt: String!
+    createdAt: Date!
+    updatedAt: Date!
   }
 
   type UserWithToken {
@@ -193,7 +193,7 @@ export const resolvers = {
 
       Object.assign(user, { email, name, encryptionPassword });
 
-      await userRepository.save(user);
+      await user.save().catch(catchDBError());
 
       const reIssuedToken: string = issueToken(user.pk);
 
@@ -227,7 +227,7 @@ export const resolvers = {
         throwError('Invalid Password');
       }
 
-      await userRepository.remove(user).catch(catchDBError());
+      await user.remove().catch(catchDBError());
 
       return true;
     }
